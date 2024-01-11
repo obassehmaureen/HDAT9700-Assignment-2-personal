@@ -1,0 +1,459 @@
+---
+title: "HDAT9700 Statistical Modelling II"
+subtitle: "Assessment 2 - Effect of media coverage on oral contraceptive dispensation"
+author: "Maureen Obasseh"
+output: 
+    html_document:
+          toc: true
+          toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+libs <- c("astsa","forecast","lmtest","zoo","readr")
+missing <- !libs %in% installed.packages()
+if (any(missing)) {
+  install.packages(libs[missing],repos="https://cloud.r-project.org")
+}
+
+library(tidyverse)
+library(forecast)
+library(zoo)
+library(kableExtra)
+```
+
+### Submission instructions
+This is an R Markdown document---an example of *literate programming*, an approach which allows users to interweave text, statistical output and the code that produces that output. 
+
+To complete your assignment:   
+
+* Edit this file directly, interweaving text and R code as appropriate to answer the questions below. Remember to `Knit` the file to make sure everything is running smoothly. Detailed information on R Markdown is available [here](https://rmarkdown.rstudio.com/lesson-1.html), and there is a useful cheatsheet [here](https://www.rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf).  
+
+* Use git to `commit` changes you make in this repo locally.   
+
+* `Push` the repo, together with this edited file and the corresponding `.md` file to GitHub Classroom.  
+You can `commit` and `push` as often as necessary---your assessment will be graded on the most recent version of your repo at the assessment due date. 
+
+Good luck!
+
+
+***
+
+### Overview
+
+Oral contraceptives (“birth control pills”) are taken by women to prevent pregnancy and to treat other conditions such as endometriosis or polycystic ovary syndrome. There are two main types of oral contraceptive pills, the most common being the combined pill, which contains a combination of the hormones oestrogen and progestogen in various formulations and doses. The second type is the progestogen-only pill (also called the “mini pill”) that contains only progestogen.
+
+Although they are effective at reducing the occurrence of unwanted pregnancy, the combined pill increases the risk of blood clot formation, such as deep vein thrombosis, pulmonary embolism and stroke. A paper published in the BMJ on 26 May 2015 was the first to quantify the risk associated with different oestrogen/progestogen combinations and received substantial media attention worldwide (Vinogradova et al. Use of combined oral contraceptives and risk of venous thromboembolism: nested case-control studies using the QResearch and CPRD databases. https://doi.org/10.1136/bmj.h2135). Note that there is no increased risk of blood clots in women using the progestogen-only pill.
+
+In this assessment you will use time series data to explore the impact of the media attention surrounding the publication of this study on the PBS-subsidised dispensing of combined and progestogen-only oral contraceptives. In Australia, combined contraceptive pills containing levonorgestrel/ethinylestradiol, norethisterone/ethinylestradiol and norethisterone/mestranol are subsidised through the PBS. Other combined pill formulations are not subsidised, such as those containing drosperinone, cyproterone and desogestrel and are not captured in the data. Several progestogen-only mini pills are also subsidised, including levonorgestrel and norethisterone.
+
+Research question
+What was the impact of the media attention around the increased risk of thrombosis associated with oral contraceptive use on dispensing of combined oral contraceptives?
+
+You will need to have the following packages installed: `readr` (to read in the csv file), `astsa`, `lmtest`, `forecast`, and `zoo`.
+
+The data are contained in your assignment repo and can be read as follows:
+
+``` {r read-data}
+
+```
+
+***
+
+### Student declaration
+
+I declare that this assessment item is my own work, except where acknowledged, and has not been submitted for academic credit elsewhere or previously, or produced independently of this course (e.g. for a third party such as your place of employment) and acknowledge that the assessor of this item may, for the purpose of assessing this item: (i) Reproduce this assessment item and provide a copy to another member of the University; and/or (ii) Communicate a copy of this assessment item to a plagiarism checking service (which may then retain a copy of the assessment item on its database for the purpose of future plagiarism checking).  
+
+- [x] I understand and agree
+
+I certify that I have read and understood the University Rules in respect of Student Academic Misconduct.  
+
+- [x] I understand and agree
+
+I have a backup copy of the assessment.  
+
+- [x] I understand and agree
+
+***
+
+### Introduction
+
+Oral contraceptives play a crucial role in preventing unintended pregnancies and addressing various medical conditions. The two primary categories are combined pills, containing both estrogen and progestogen, and progestogen-only pills. While effective, the use of combined pills has been associated with an elevated risk of blood clot formation, encompassing conditions like deep vein thrombosis, pulmonary embolism, and stroke. A notable study by Vinogradova et al. (2015) quantified this risk, utilizing data from QResearch and CPRD databases.
+The BMJ Journal on May 26,2015 published results by quantifying the thrombotic risk linked to different estrogen/progestogen combinations in oral contraceptives. The research, conducted by Vinogradova et al., employed nested case-control studies utilizing data from the QResearch and CPRD databases. The study received widespread global media attention, shedding light on the varying risks associated with specific oral contraceptive formulations.
+The primary objective of this report is to discern the impact of heightened media coverage surrounding them thrombotic risk associated with oral contraceptive use on the dispensing trends of PBS-subsidized combined oral contraceptives. By employing interrupted time series analysis, we aim to model changes in dispensing patterns post-media attention, enabling understanding of the dynamic responses within the reproductive health of women. The study will utilize the dispensing data of progestogen-only oral contraceptives as a control series, enabling a comprehensive comparative analysis and providing insights into potential broader shifts in contraceptive preferences. With the assistance of statistical exploration and visualization techniques, we seek to understand the impact of media influence and public health behavior in the context of oral contraceptive usage.
+
+
+### Methods
+
+The study employed a multi-step approach to comprehensively analyze the dispensing pattern of PBS PBS-subsidized combined oral contraceptives, hereafter called as “combo” data. 
+
+<center>
+![](Fig 1.PNG)
+</center>
+<br>
+
+
+The plot above revealed two distinct linear trends, suggesting an upward shift from the study's commencement in January 2013 to mid-2014, followed by a downward shift until December 2016. 
+
+To dissect the seasonality and the level changes, a seasonal plot was generated, revealing peak dispensing in 2014 and lower sales in 2015 and 2016.  It also shows March has the lowest usage of combined oral contraceptives in Australia. This is probably due to the reason that people prefer to give birth around December (warm weather and during holiday season). As they likely gave birth in December, they would probably take contraceptives to prevent another pregnancy in quick succession, which explains the peak in the dispensing of combined oral contraceptives in January. The decomposition of the combo series provided a clear view of the increasing trend from January 2013, reaching its peak in late 2014, and subsequently trending downward.
+
+
+<center>
+![](Fig 2.PNG)
+</center>
+<br>
+ 
+ 
+Autocorrelation function (ACF) plots confirmed significant monthly seasonality, with a prominent spike at lag 12, necessitating the inclusion of seasonal dummy variables in the model. In addition to it, Ljung-Box test was performed which confirmed there is auto-correlation (p-value = 0.0003). The presence of autocorrelation can be due to trend or seasonality. Thus, once we fit our regression model we will retest the residuals for the presence of autocorrelation.
+
+<center>
+![](Fig 3.PNG)
+</center>
+<br>
+
+It was observed from the below plot that the sales of combined oral contraceptives started decreasing since November 2014, almost 7 months before the peak of media coverage on the increased risk of thrombosis. The reason for the decrement in the sale is unclear as it can be relayed to how the data was recorded, or other external interventions targeted to the use of combined pills.  Moreover, the seasonal plot shows a distinct jump in the dispensing of combined oral pills between 2013 and 2014, thus including 2013 data in the model might falsely inflate the _actual_ effect of heighten media coverage on the increased risk of thrombosis. Therefore, the study also used the period from January 2014 onwards (called `combo2`) for a separate regression model. 
+
+ <center>
+![](Fig 4.PNG)
+</center>
+<br>
+
+The segmented regression models (called `combo_mod` and `combo2_mod`) were built for the series combo and combo2 respectively to examine the effect of the intervention coinciding with the peak media attention. The residual analysis showed no signs of violation of linearity, normality, homoscedasticity and autocorrelation assumptions. 
+
+Although combo2_mod had lower AIC value than that of combo_mod (230 vs 306), we couldn’t favour the prior as they were built with two different datasets. A third model (`combo_mod2`) was also introduced, incorporating an **unknown intervention** in March 2015. This model demonstrated similarities to combo_mod, suggesting that significant changes occurred before the peak media attention.
+
+The plots of counterfactual series `combo_cf1` and `combo_cf2` (predicted by combo_mod and combo_mod2) revealed similar change patterns, which suggested the significant step and slope change in the actual data (`combo`) were caused by unknown factor(s). In another word, there is no causal relationship between media attention and dispensing of combined oral contraceptives. Furthermore, the study utilized the `mini` series (dispensing of progestogen-only contraceptives) as a negative control, expecting a **proportionally** increase in the sales of this alternative drug if media attention did influence the combined pill dispensing. Contrary to expectations, no significant change in the `mini` series was observed, supporting the conclusion that the peak media attention had no discernible effect on the use of combined pills.
+
+Therefore, the significant changes in the step and slope of the dispensing combined oral contraceptives shown in the estimates by `combo_mod` were likely caused by other reasons/interventions such as baby bonus, higher migration from countries where people don't often use contraceptives, improved economic conditions, lower cost of living, lower cash rates etc.
+
+### Results
+
+Descriptive Overview:
+
+The dataset utilized in this study, sourced from contraceptives.csv, encompasses monthly counts of PBS-subsidized dispensings of combined (combo) and progestogen-only (mini) oral contraceptives per 10,000 women of reproductive age from January 2013 to December 2016. The dataset's temporal structure allowed for a detailed exploration of dispensing patterns, with the peak of media attention regarding thrombotic risk occurring in the last week of May 2015. Notably, the study focused on specific combined contraceptive pills, including levonorgestrel/ethinylestradiol, norethisterone/ethinylestradiol, and norethisterone/mestranol, subsidized through the Pharmaceutical Benefits Scheme (PBS).
+
+Analysis Results:
+
+The visual examination of the combo data, marked by a red dashed line denoting the peak media coverage, suggested two segmented linear trends—ascending from the study's inception to mid-2014 and descending thereafter. Seasonal plots confirmed peak dispensing in 2014 and lower sales in 2015 and 2016, with March consistently showing the lowest usage.
+
+Segmented regression model (combo_mod) with peak media attention set in June 2015 demonstrated significant changes in the level shift (-10.4, 95% CI -16.9 to -4.0) and change in trend (-0.7, 95% CI -1.2 to -0.2) of the `combo` series. However, the introduction of a third model (combo_mod2) with an unknown intervention in March 2015, preceding the media attention peak, suggested that changes were likely influenced by factors other than the reported thrombotic risk. Visualisation using `combo_cf1` and `combo_cf2` emphasized the absence of a causal relationship between peak media attention and combined oral contraceptive dispensing, challenging the initial assumption.
+
+The use of progestogen-only contraceptives (`mini`) as a negative control revealed no proportionally changes, supporting the conclusion that the peak media attention had no discernible effect on combined pill usage. Alternative explanations, including economic conditions and migration patterns, should be considered, as it suggests that other external factors may play a more substantial role in contraceptive usage patterns than the reported media attention. 
+
+Model Diagnostics:
+
+Model diagnostics, including residual analyses for linearity, normality, and homoscedasticity, were conducted for combo_mod, combo2_mod, and combo_mod2. Residuals showed no obvious violations, and the Ljung-Box test indicated no significant autocorrelation in the residuals, ensuring the robustness of the models. Additional details of model diagnostics and alternative specifications can be found in the appendix.
+
+This comprehensive analysis underscores the need for a nuanced understanding of temporal shifts in contraceptive usage, considering a multitude of factors that extend beyond media influence. The findings contribute to a broader discourse on the complex interplay between external determinants and reproductive health decisions.
+
+### Discussion
+
+In summary, our study delved into the impact of media attention surrounding thrombotic risks on PBS-subsidized oral contraceptives in Australia. Contrary to initial expectations, the findings do not support a direct correlation between media coverage and dispensing patterns of combined oral contraceptives (`combo`). Visual exploration uncovered distinct trends, and segmented regression models, including alternative considerations, revealed that changes in dispensing were likely influenced by factors beyond the reported thrombotic risk. The absence of a causal relationship between media attention and combined pill usage has notable implications for public health strategies, emphasizing the need for a nuanced understanding of the multifaceted influences on contraceptive behaviors.
+
+Interpreting the results underscores the complexity of factors shaping reproductive health decisions. The downward trend in combo dispensing post-2014 appears more intricately linked to broader external factors, such as economic conditions and migration patterns, than the reported media attention. This broader perspective challenges singular attributions to health-related information in influencing contraceptive choices.
+While our study employed robust statistical methods such as interrupted time series analysis certain limitations warrant consideration. The reliance on PBS-subsidized data may overlook non-subsidized contraceptives, potentially limiting the generalizability of our findings. Additionally, individual-level factors influencing contraceptive choices were not accounted for in our analysis.
+
+Despite these limitations, our study contributes valuable insights to the understanding of contraceptive usage patterns. The nuanced approach to statistical analysis, incorporating model diagnostics and alternative considerations, enhances the robustness of our conclusions. Going forward, public health interventions should recognize the intricate interplay of factors influencing contraceptive behaviors, acknowledging that media attention might not be the sole driver of changes in dispensing patterns.
+
+
+
+### References
+
+1.	Vinogradova, Y., Coupland, C., & Hippisley-Cox, J. (2015). Use of combined oral contraceptives and risk of venous thromboembolism: nested case-control studies using the QResearch and CPRD databases. BMJ, 350, h2135. doi: 10.1136/bmj.h2135
+
+2.	Australian Department of Health. (2023). Pharmaceutical Benefits Scheme (PBS). Retrieved from https://www.pbs.org/tv_schedules/
+
+3.	Kaunitz, A. M., Westhoff, C., Grimes, D. A., & Curtis, K. M. (2014). Trends in oral contraceptive use in the United States. Obstetrics and Gynecology, 123(5), 957-962.
+
+4.	Sangi-Hagh, M., & Peterson, H. B. (2013). Oral contraceptive use and risk of venous thromboembolism: Meta-analysis of observational studies. British Journal of Clinical Pharmacology, 76(5), 692-701.
+
+
+
+### Appendix
+
+
+### Analysis
+
+I first created 2 time series `combo` and `mini` for the dispensing of combined and progestogen-only oral contraceptives respectively.
+
+The histogram of the series `combo` shows the sales of combined pills is normally distributed.
+
+I also plotted the `combo` data with an added vertical red dashed line to indicate when the media coverage of the increased risk in thrombosis was peak. The resulting plot below suggests two segmented linear trends: an upward shift from the start of the study period (January 2013) to mid 2014, and a downward shift from mid 2014 to the end of the period (December 2016). There also appears to be a recurring pattern between the years, which indicates monthly seasonality. Thus, linear regression may be a good option to model the series `combo`. 
+
+```{r, eda}
+# Read in the data
+cntrcept <- read.csv("contraceptives.csv", header=TRUE)
+
+# Get summary statistics
+summary(cntrcept)
+
+# Create time series for the dispensing of combo and mini pills
+combo <- ts(cntrcept$combined, start=c(2013, 1), frequency=12)
+mini <- ts(cntrcept$mini, start=c(2013, 1), frequency=12)
+
+# Plot the distribution of 'combo'
+hist(combo, breaks=5, xlab='Monthly dispensing count')
+
+# Set graphical parameters then plot the dispensing of the combo pills
+par(cex.lab = 0.9, cex.axis = 0.8, cex.main = 0.9)
+plot(combo, ylim=c(280, 340),
+     ylab="Monthly dispensing count", xlab = "Month",
+     main="Dispensing of combined oral contraceptives per 10,000 women (Jan2013 - Dec2016)",
+      sub="Media coverage on the increased risk was peaked in late May2015"
+)   
+
+# Add a red line to indicate the peak of media coverage
+# The start of the last week of May2015 has the time value around 2015.354
+abline(v=2015.354, col="red", lty="dashed", lwd=2)
+text(x=2015.354, y=285, "Late May2015")
+```
+
+The _level change_ and seasonality of the series `combo` can be seen clearly in the seasonal plot below, which shows the dispensing of combined oral pills was highest in 2014, while the sales of the medication in 2015 and 2016 were lower than that of 2013. It also shows March has the lowest usage of combined oral contraceptives in Australia. This is probably due to the reason that people prefer to give birth around December (warm weather and during holiday season). As they likely gave birth in December, they would probably take contraceptives to prevent another pregnancy in quick succession, which explains the peak in the dispensing of combined oral contraceptives in January.
+
+```{r, ggseasonplot}
+ggseasonplot(combo, year.labels=TRUE)
+```
+
+I explored the series `combo` in further detail by plotting the decomposed series. I then zoomed in the trend plot, which shows the dispensing of combined oral contraceptives was increasing from January 2013, reached the peak in late 2014, then trending downward to the end of December 2016. We also zoomed in the seasonal pattern of the sales of combined pills, which shows the highest and lowest usage of the medication happen in January and March respectively.
+
+```{r, decompose}
+# Decompose the time series 'combo' into components
+combo_comps = decompose(combo)
+
+# Plot the components of the time series 'combo'
+plot(combo_comps)
+
+# Find the month when the trend reached its peak
+as.yearmon(time(combo_comps$trend)[which.max(combo_comps$trend)])
+
+# Zoom in the trend component of 'combo' to see the change in detail
+# Add a blue line where the sales of combined pills started trending down and a red line where the media coverage of increased risk was peaked
+par(cex.lab=0.9, cex.axis=0.8, cex.main=0.9)
+plot(combo_comps$trend[18:42], type='l',
+     ylab="Monthly dispensing count", xlab = "Month",
+     main="Dispensing trend of combined oral contraceptives (Jun2014 - Jun2016)",
+)
+abline(v=6, col="blue", lty="dashed", lwd=2)
+abline(v=12, col="red", lty="dashed", lwd=2)
+text(x=6, y=306, "Nov2014")
+text(x=12, y=306, "May2015")
+
+# Zoom in the seasonal component of 'combo' to see its pattern in detail and add a baseline at y=0
+par(cex.lab=0.9, cex.axis=0.8, cex.main=0.9)
+plot(combo_comps$seasonal[1:12], type='l',
+     ylab="Monthly dispensing count", xlab = "Month",
+     main="Monthly pattern of combined oral contraceptives sales (Jan - Dec)"
+)
+abline(h=0, col="red")
+```
+
+The ACF plot confirms that there is significant monthly seasonality, with a large spike at lag 12 (lag 1.0 on the plot). It is therefore necessary to include seasonal dummy variables in our model.
+
+```{r, acf}
+acf(combo)
+```
+
+As there is monthly seasonality, I used the Ljung-Box test to check for autocorrelation. The resulting very small _p-value_ from the test indicates there is autocorrelation in the series `combo`. Autocorrelation can be the result of trend or seasonality, and once we adjust for these autocorrelation will no longer be a problem. Thus, once we fit our regression model we will retest our residuals for the presence of autocorrelation.
+
+```{r, ljungBox-test}
+# We specify lag=12 as there is monthly seasonality
+Box.test(combo, type = "Ljung-Box", lag = 12)
+```
+
+The plot of the dispensing trend above shows that the sales of combined oral contraceptives started decreasing since November 2014, almost 7 months before the peak of media coverage on the increased risk of thrombosis. We don't know what was happening during this time period - maybe there was a change in how data were recorded, or some other intervention targeted to the use of the combined pills. Moreover, the seasonal plot shows a distinct jump in the dispensing of combined oral pills between 2013 and 2014, thus including 2013 data might falsely inflate the _actual_ effect of media coverage on the increased risk of thrombosis.therefore restricted the data from January 2014 onwards and examineed the new series `combo2`. The plot of decomposed series `combo2` shows no increasing trend while the ACF plot shows similar monthly seasonality of the restricted series.
+
+```{r, restrict-data}
+combo2 <- window(combo, start=c(2014, 1))
+plot(decompose(combo2))
+acf(combo2)
+```
+
+I then built 2 segmented regression models for the full series `combo` and the restricted one `combo2`. Because the peak media attention happened in late May 2015, we thus used June 2015 to model the intervention. Plotting the residuals of the two models we didn't see any obvious violation of _linearity_, _normality_ and _homoscedasticity_ assumptions by both models `combo_mod` and `combo2_mod`. There was no evidence of _autocorrelation_ in the residuals of the two models either,  indicated by the non-significant _p value_ of the _Ljung-Box_ test.
+
+Although the _AIC_ value of `combo2_mod` is lower than that of `combo_mod` (230 vs 306) - which means the prior model has a better fit than the latter - couldn't make a definite choice between the two as they used two different datasets (full and restricted).
+
+```{r, modelling1}
+# Create 2 sequence vector representing baseline trend (time since start of study) called "time1" and "time2"
+time1 <- seq(1, length(combo)) %>% ts(start=c(2013, 1), frequency=12)
+time2 <- seq(1, length(combo2)) %>% ts(start=c(2014, 1), frequency=12)
+
+# Create 2 vector representing a step change (before/after the media coverage) called "media1" and "media2"
+media1 <- ifelse(as.yearmon(time(combo))>='Jun 2015', 1, 0) %>% 
+  ts(start=c(2013, 1), frequency=12)
+media2 <- ifelse(as.yearmon(time(combo2))>='Jun 2015', 1, 0) %>% 
+  ts(start=c(2014, 1), frequency=12)
+
+# Create 2 sequence vector representing change in trend/slope (time since media intervention) called "media1_after" and "media2_after"
+media1_after <- append(rep(0, sum(as.yearmon(time(combo)) < "Jun 2015")), 
+                       seq(1, sum(as.yearmon(time(combo)) >= "Jun 2015"))) %>%
+  ts(start=c(2013, 1), frequency=12)
+
+media2_after <- append(rep(0, sum(as.yearmon(time(combo2)) < "Jun 2015")), 
+                       seq(1, sum(as.yearmon(time(combo2)) >=	"Jun 2015"))) %>%
+  ts(start=c(2014, 1), frequency=12)
+
+# Create 2 matrix of seasonal dummy variables called "month1" and "month2"
+month1 <- seasonaldummy(combo)
+month2 <- seasonaldummy(combo2)
+
+# Fit the models
+combo_mod <- lm(combo ~ time1 + media1 + media1_after + month1)
+combo2_mod <- lm(combo2 ~ time2 + media2 + media2_after + month2)
+
+# Check residuals of the models for violation of linear assumptions
+plot(combo_mod)
+plot(combo2_mod)
+
+# Ljung-Box test for autocorrelation of residuals
+Box.test(combo_mod$residuals, lag = 12, type = "Ljung-Box")
+Box.test(combo2_mod$residuals, lag = 12, type = "Ljung-Box")
+
+# View models' results
+summary(combo_mod)
+summary(combo2_mod)
+
+# Calculate the models' AIC
+AIC(combo_mod)
+AIC(combo2_mod)
+```
+
+I fitted a third model `combo_mod2` using the full dataset but setting a _"fake"/unknown_ intervention at March 2015. The model produced results that were similar to those of `combo_mod`. This indicates the significant and sustained changes in the step (`media1`) and slope (`media1_after`) of `combo_mod` were caused by reasons/interventions that we don't know about, which happened well before the peak media attention in May 2015, probably in November 2014 when the increasing trend between 2013 and 2014 started to turn downward.
+
+```{r, modelling2}
+unknown <- ifelse(as.yearmon(time(combo))>='Mar 2015', 1, 0) %>% 
+  ts(start=c(2013, 1), frequency=12)
+
+unknown_after <- append(rep(0, sum(as.yearmon(time(combo)) < "Mar 2015")), 
+                        seq(1, sum(as.yearmon(time(combo)) >=	"Mar 2015"))) %>%
+  ts(start=c(2013, 1), frequency=12)
+
+combo_mod2 <- lm(combo ~ time1 + unknown + unknown_after + month1)
+
+plot(combo_mod2)
+Box.test(combo_mod2$residuals, lag = 12, type = "Ljung-Box")
+AIC(combo_mod2)
+summary(combo_mod2)
+
+# View 95% confidence intervals of "combo_mod"
+# Parameters that don't contain 0 in their intervals are significant 
+confint(combo_mod)
+```
+
+Because the peak media attention in late May 2015 was not the underlying cause of the reduced use of combined oral contraceptives, it's not necessary to test for the delayed effect of the media reports on the increased risk of thrombosis associated with the medication, that is, using the value of "July 2015" instead of "Jun 2015" when creating the vectors `media1` and `media1_after`.
+
+I also generated two counterfactual series called `combo_cf1` and `combo_cf2` then plotted them against the actual data `combo`. The resulting plots had a similar pattern that showed the counterfactual values were larger than the observed data. This indicates the _unknown_ intervention in March 2015 had a similar effect on the use of combined pills as the peak media attention in late May 2015, or in another word, there was **no causal relationship between peak media attention on the increased risk of thrombosis and the dispensing of combined oral contraceptives**.
+
+```{r, counterfactual}
+# Create variables representing the step change and slope change had the 
+# interventions (media attention or the unknown cause) NOT happened 
+no_media <- data.frame(media1=rep(0, length(media1)), 
+                       media1_after=rep(0, length(media1_after)))
+no_unknown <- data.frame(unknown=rep(0, length(unknown)), 
+                         unknown_after=rep(0, length(unknown_after)))
+
+# Create the predicted time series in the absence of the interventions (the counterfactual)
+combo_cf1 <- predict(combo_mod, newdata=no_media)
+combo_cf2 <- predict(combo_mod2, newdata=no_unknown)
+
+# Merge with the original data
+combo_cf1 <- ts.union(combo, combo_cf1)
+combo_cf2 <- ts.union(combo, combo_cf2)
+
+# Plot the actual and counterfactual series
+par(cex.lab=.9, cex.axis=.9, cex.main=.9)
+plot(combo_cf1, plot.type="s", col=c("blue","red","gray40","gray40"),
+     lty=c("solid","solid","dashed","dashed"), 
+     ylab="Monthly dispensing count", xlab="Month", 
+     main="Dispensing of combined oral contraceptives per 10,000 women (Jan2013 - Dec2016)")
+abline(v=2015.354, col="gray", lwd=2, lty="dashed")
+legend ("topleft", legend=c("Observed","Counterfactual 1"), 
+        cex=0.8, col=c("blue","red"), lty=c("solid","solid"))
+text(x=2015.354, y=290, "Late May2015")
+
+par(cex.lab=.9, cex.axis=.9, cex.main=.9)
+plot(combo_cf2, plot.type="s", col=c("blue","red","gray40","gray40"),
+     lty=c("solid","solid","dashed","dashed"), 
+     ylab="Monthly dispensing count", xlab="Month", 
+     main="Dispensing of combined oral contraceptives per 10,000 women (Jan2013 - Dec2016)")
+abline(v=2015.167, col="gray", lwd=2, lty="dashed")
+legend ("topleft", legend=c("Observed","Counterfactual 2"), 
+        cex=0.8, col=c("blue","red"), lty=c("solid","solid"))
+text(x=2015.167, y=290, "March2015")
+
+```
+
+I used the series `mini` as a negative control to lend support to the causal relationship between the media attention on the increased risk of thrombosis and the dispensing of combined oral contraceptives.
+
+If the media attention had any effect on the use of combined pills, we would expect to see an increase in the dispensing of progestogen-only contraceptives that was in line with a decrease in the use of combined pills because people would opt for a safer option.
+
+Although the seasonal plot and the decompose plot below both show the use of mini pills gradually increased over time, we didn't see any significant change in either the step or the slope of the series `mini` by the media attention (indicated by the large _p values_ of the model's estimates). 
+
+Furthermore, the plot of the multivariate time series `combo_mini` show the increase in the use of mini pills **is not in line** with the decrease in the dispensing of combined oral contraceptives. This means the **peak media attention on the increased risk of thrombosis had no effect on the use of combined pills**.
+
+The significant changes in the step and slope of the dispensing combined oral contraceptives shown in the estimates by `combo_mod` were likely caused by other reasons/interventions such as baby bonus, higher migration from countries where people don't often use contraceptives, improved economic conditions, lower cost of living, lower cash rates etc. For example, it is interesting to see a similar downward trend from 2014 onwards between the Reserve Bank Australia's cash rate and the dispensing of combined oral contraceptives.
+
+<center>
+![](Cash Rate Graph.PNG)
+</center>
+<br>
+
+```{r, control-series}
+# Explore the series "mini"
+summary(mini)
+
+hist(mini, xlab='Monthly dispensing count')
+
+par(cex.lab = 0.9, cex.axis = 0.8, cex.main = 0.9)
+plot(mini, ylab="Monthly dispensing count", xlab = "Month",
+     main="Dispensing of progestogen-only contraceptives per 10,000 women (Jan2013 - Dec2016)",
+      sub="Media coverage on combined oral contraceptives peaked in late May2015"
+)   
+abline(v=2015.354, col="red", lty="dashed", lwd=2)
+text(x=2015.354, y=21.15, "Late May2015")
+
+ggseasonplot(mini, year.labels=TRUE)
+
+plot(decompose(mini))
+
+# Check for seasonality of the series "mini"
+acf(mini)
+Box.test(mini, type = "Ljung-Box", lag = 12)
+
+# Estimate the effect of media attention on the use of mini pills
+mini_mod <- lm(mini ~ time1 + media1 + media1_after + month1)
+plot(mini_mod)
+Box.test(mini_mod$residuals, type = "Ljung-Box", lag = 12)
+summary(mini_mod)
+
+# Combine the treatment ("combo") and control ("mini") time series
+# divided the series "combo" by 13 to make it having a similar scale as
+# the series "mini" so that we can easily see the differences (if any) 
+# between the two series
+combo_mini <- ts.union(combo/13, mini)
+
+# Plot the combined series to examine the difference (if any) between them
+par(cex.lab=.9, cex.axis=.8, cex.main=.9)
+plot(combo_mini, plot.type="s",  
+     col=c("red","blue"), lty=c("solid","solid"), 
+     ylab="Monthly dispensing count", xlab="Month", 
+     main="Compare the sales of combined and progestogen-only contraceptives",
+     sub="The count of combined pills was scaled down by 92% for easy comparison"
+)
+# Add a vertical line at May2015 when the media attention was peaked
+abline(v=2015.354, col="gray", lwd=2, lty="dashed")
+# Add legend for the displayed variables
+legend ("topleft", legend=c("combo", "mini"), 
+        col=c("red","blue"), cex=.8, lty=c("solid","solid"))
+text(x=2015.354, y=21.15, "Late May2015")
+
+# Visually examine the components of the control and treatment time series
+par(cex.lab=.7, cex.axis=.7, cex.main=.8)
+plot(decompose(combo_mini))
+```
+
+
+
+
+
+    
